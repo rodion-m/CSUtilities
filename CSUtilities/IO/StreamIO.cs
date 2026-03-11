@@ -67,7 +67,7 @@ internal class StreamIO : IDisposable
 			stream.Position = 0;
 			//Create a copy of the stream to allow seeking
 			byte[] buffer = new byte[stream.Length];
-			stream.Read(buffer, 0, buffer.Length);
+			ReadExactly(stream, buffer, 0, buffer.Length);
 			_stream = (Stream)new MemoryStream(buffer);
 			stream.Position = position;
 		}
@@ -214,8 +214,7 @@ internal class StreamIO : IDisposable
 
 		byte[] buffer = new byte[length];
 
-		if (this._stream.Read(buffer, 0, length) < length)
-			throw new EndOfStreamException();
+		ReadExactly(this._stream, buffer, 0, length);
 
 		return buffer;
 	}
@@ -227,10 +226,39 @@ internal class StreamIO : IDisposable
 
 		byte[] buffer = new byte[length];
 
-		if (await this._stream.ReadAsync(buffer, 0, length, cancellationToken) < length)
-			throw new EndOfStreamException();
+		await ReadExactlyAsync(this._stream, buffer, 0, length, cancellationToken).ConfigureAwait(false);
 
 		return buffer;
+	}
+
+	internal static void ReadExactly(Stream stream, byte[] buffer, int offset, int count)
+	{
+		int totalRead = 0;
+		while (totalRead < count)
+		{
+			int read = stream.Read(buffer, offset + totalRead, count - totalRead);
+			if (read == 0)
+			{
+				throw new EndOfStreamException();
+			}
+
+			totalRead += read;
+		}
+	}
+
+	internal static async Task ReadExactlyAsync(Stream stream, byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
+	{
+		int totalRead = 0;
+		while (totalRead < count)
+		{
+			int read = await stream.ReadAsync(buffer, offset + totalRead, count - totalRead, cancellationToken).ConfigureAwait(false);
+			if (read == 0)
+			{
+				throw new EndOfStreamException();
+			}
+
+			totalRead += read;
+		}
 	}
 
 	/// <summary>
